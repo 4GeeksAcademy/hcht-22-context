@@ -1,29 +1,9 @@
-from datetime import date
-
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.routes import filter_movements_by_date, generate_mock_movements
 
 
 client = TestClient(app)
-
-
-def test_generate_mock_movements_returns_full_year_sorted_data():
-    movements = generate_mock_movements(seed=42)
-
-    assert len(movements) == 360
-    assert movements == sorted(movements, key=lambda item: item.create_date)
-
-
-def test_filter_movements_by_date_includes_range_edges():
-    movements = generate_mock_movements(seed=42)
-    target_date = movements[0].create_date
-
-    filtered = filter_movements_by_date(movements, target_date, target_date)
-
-    assert filtered
-    assert all(movement.create_date == target_date for movement in filtered)
 
 
 def test_health_endpoint_returns_ok():
@@ -33,157 +13,95 @@ def test_health_endpoint_returns_ok():
     assert response.json() == {"status": "ok"}
 
 
-def test_metrics_endpoint_respects_date_filters():
-    base_response = client.get("/api/metrics")
-    assert base_response.status_code == 200
-    first_date = base_response.json()[0]["create_date"]
+def test_books_endpoint_returns_catalog_sorted_by_title():
+    response = client.get("/api/books")
 
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload
+    titles = [item["title"] for item in payload]
+    assert titles == sorted(titles, key=str.lower)
+
+
+def test_books_endpoint_filters_by_query_author_category_and_availability():
     response = client.get(
-        "/api/metrics",
-        params={"start_date": first_date, "end_date": first_date},
+        "/api/books",
+        params={
+            "q": "cien",
+            "author": "Gabriel Garcia Marquez",
+            "category": "Novela",
+            "available": True,
+        },
     )
 
     assert response.status_code == 200
     payload = response.json()
     assert payload
-    assert all(item["create_date"] == first_date for item in payload)
+    assert all("cien" in item["title"].lower() for item in payload)
+    assert all(item["author"] == "Gabriel Garcia Marquez" for item in payload)
+    assert all(item["category"] == "Novela" for item in payload)
+    assert all(item["available"] is True for item in payload)
 
 
-def test_b2b_endpoint_only_returns_b2b_records():
-    response = client.get("/api/metrics/b2b")
-
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload
-    assert all(item["business_type"] == "B2B" for item in payload)
-    assert payload == sorted(payload, key=lambda item: item["create_date"])
-
-
-def test_b2c_endpoint_only_returns_b2c_records():
-    response = client.get("/api/metrics/b2c")
-
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload
-    assert all(item["business_type"] == "B2C" for item in payload)
-    assert payload == sorted(payload, key=lambda item: item["create_date"])
-
-
-def test_metrics_endpoint_filters_by_category():
-    response = client.get("/api/metrics", params={"category": "sales"})
-
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload
-    assert all(item["category"] == "sales" for item in payload)
-
-
-def test_metrics_endpoint_filters_by_operation_type():
-    response = client.get("/api/metrics", params={"operation_type": "income"})
-
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload
-    assert all(item["operation_type"] == "income" for item in payload)
-
-
-def test_b2b_endpoint_combines_new_filters():
-    response = client.get(
-        "/api/metrics/b2b",
-        params={"operation_type": "outcome", "category": "suppliers"},
-    )
-
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload
-    assert all(item["business_type"] == "B2B" for item in payload)
-    assert all(item["operation_type"] == "outcome" for item in payload)
-    assert all(item["category"] == "suppliers" for item in payload)
-
-
-def test_metrics_facets_returns_filter_options_and_date_range():
-    response = client.get("/api/metrics/facets")
-
-    assert response.status_code == 200
-    payload = response.json()
-    assert sorted(payload["operation_types"]) == ["income", "outcome"]
-    assert payload["business_types"] == ["B2B", "B2C"]
-    assert payload["categories"] == [
-        "administrative",
-        "operational",
-        "others",
-        "sales",
-        "suppliers",
-    ]
-    assert payload["min_date"] <= payload["max_date"]
-
-
-def test_metrics_summary_by_month_returns_balances():
-    response = client.get("/api/metrics/summary", params={"group_by": "month"})
-
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload
-    first = payload[0]
-    assert set(first.keys()) == {"period", "income", "outcome", "net"}
-    assert all(item["income"] >= 0 for item in payload)
-    assert all(item["outcome"] >= 0 for item in payload)
-
-
-def test_metrics_summary_by_week_honors_business_type_filter():
-    response = client.get(
-        "/api/metrics/summary",
-        params={"group_by": "week", "business_type": "B2C"},
-    )
-
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload
-
-
-def test_top_categories_returns_limited_sorted_categories():
-    response = client.get(
-        "/api/metrics/categories/top",
-        params={"operation_type": "outcome", "limit": 3},
-    )
-
-    assert response.status_code == 200
-    payload = response.json()
-    assert len(payload) == 3
-    assert payload[0]["total_amount"] >= payload[1]["total_amount"]
-    assert all(item["operation_type"] == "outcome" for item in payload)
-
-
-def test_metrics_comparison_returns_delta_fields():
-    response = client.get(
-        "/api/metrics/comparison",
-        params={"start_date": "2025-03-01", "end_date": "2025-03-31"},
-    )
+def test_facets_endpoint_returns_authors_categories_and_totals():
+    response = client.get("/api/books/facets")
 
     assert response.status_code == 200
     payload = response.json()
     assert set(payload.keys()) == {
-        "current_period",
-        "previous_period",
-        "delta_abs",
-        "delta_pct",
+        "authors",
+        "categories",
+        "total_books",
+        "available_books",
     }
+    assert payload["total_books"] >= payload["available_books"]
+    assert payload["authors"]
+    assert payload["categories"]
 
 
-def test_metrics_alerts_returns_anomaly_candidates():
-    response = client.get(
-        "/api/metrics/alerts",
-        params={"threshold": 0.2, "group_by": "month"},
+def test_create_book_adds_new_record():
+    response = client.post(
+        "/api/books",
+        json={
+            "title": "Casa de Munecas",
+            "author": "Henrik Ibsen",
+            "category": "Teatro",
+            "published_year": 1879,
+            "available": True,
+        },
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 201
     payload = response.json()
-    assert isinstance(payload, list)
-    if payload:
-        first = payload[0]
-        assert set(first.keys()) == {
-            "period",
-            "outcome_total",
-            "baseline_average",
-            "increase_ratio",
-        }
+    assert payload["id"] > 0
+    assert payload["title"] == "Casa de Munecas"
+
+    list_response = client.get("/api/books", params={"q": "Munecas"})
+    assert list_response.status_code == 200
+    list_payload = list_response.json()
+    assert any(item["id"] == payload["id"] for item in list_payload)
+
+
+def test_update_book_modifies_existing_record():
+    create_response = client.post(
+        "/api/books",
+        json={
+            "title": "El tunel",
+            "author": "Ernesto Sabato",
+            "category": "Novela",
+            "published_year": 1948,
+            "available": True,
+        },
+    )
+    book_id = create_response.json()["id"]
+
+    update_response = client.put(
+        f"/api/books/{book_id}",
+        json={"available": False, "category": "Clasicos"},
+    )
+
+    assert update_response.status_code == 200
+    payload = update_response.json()
+    assert payload["id"] == book_id
+    assert payload["available"] is False
+    assert payload["category"] == "Clasicos"

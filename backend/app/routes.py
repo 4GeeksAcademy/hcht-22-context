@@ -1,243 +1,95 @@
 from __future__ import annotations
 
-import random
-from collections import defaultdict
-from datetime import date, timedelta
-from typing import Literal
-
-from fastapi import APIRouter, Query
-from pydantic import BaseModel
-
-OperationType = Literal["income", "outcome"]
-Category = Literal["suppliers", "sales",
-                   "operational", "administrative", "others"]
-BusinessType = Literal["B2B", "B2C"]
-GroupBy = Literal["day", "week", "month"]
-
-OUTCOME_CATEGORIES = ["suppliers", "operational", "administrative", "others"]
+from fastapi import APIRouter, HTTPException, Query, status
+from pydantic import BaseModel, Field
 
 router = APIRouter()
 
 
-class FinancialMovement(BaseModel):
-    create_date: date
-    amount: float
-    operation_type: OperationType
-    category: Category
-    business_type: BusinessType
+class BookBase(BaseModel):
+    title: str = Field(min_length=1, max_length=180)
+    author: str = Field(min_length=1, max_length=120)
+    category: str = Field(min_length=1, max_length=80)
+    published_year: int = Field(ge=1450, le=2100)
+    available: bool = True
 
 
-class MetricsFacets(BaseModel):
-    operation_types: list[OperationType]
-    business_types: list[BusinessType]
-    categories: list[Category]
-    min_date: date
-    max_date: date
+class Book(BookBase):
+    id: int
 
 
-class MetricsSummaryItem(BaseModel):
-    period: str
-    income: float
-    outcome: float
-    net: float
+class BookCreate(BookBase):
+    pass
 
 
-class TopCategoryItem(BaseModel):
-    category: Category
-    operation_type: OperationType
-    total_amount: float
+class BookUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=180)
+    author: str | None = Field(default=None, min_length=1, max_length=120)
+    category: str | None = Field(default=None, min_length=1, max_length=80)
+    published_year: int | None = Field(default=None, ge=1450, le=2100)
+    available: bool | None = None
 
 
-class MetricsComparison(BaseModel):
-    current_period: float
-    previous_period: float
-    delta_abs: float
-    delta_pct: float | None
+class CatalogFacets(BaseModel):
+    authors: list[str]
+    categories: list[str]
+    total_books: int
+    available_books: int
 
 
-class MetricsAlert(BaseModel):
-    period: str
-    outcome_total: float
-    baseline_average: float
-    increase_ratio: float
-
-
-def _year_for_month(month: int, today: date) -> int:
-    if month < today.month:
-        return today.year
-    return today.year - 1
-
-
-def _build_movement(month: int, income_probability: float, today: date) -> FinancialMovement:
-    operation_type: OperationType = "income" if random.random(
-    ) < income_probability else "outcome"
-    movement_day = random.randint(1, 28)
-    movement_date = date(_year_for_month(month, today), month, movement_day)
-    business_type: BusinessType = "B2B" if random.random() < 0.55 else "B2C"
-
-    if operation_type == "income":
-        category: Category = "sales" if random.random() < 0.9 else "others"
-        amount = round(random.uniform(800, 12000), 2)
-    else:
-        category = random.choice(OUTCOME_CATEGORIES)
-        amount = round(random.uniform(500, 9000), 2)
-
-    return FinancialMovement(
-        create_date=movement_date,
-        amount=amount,
-        operation_type=operation_type,
-        category=category,
-        business_type=business_type,
-    )
-
-
-def generate_mock_movements(seed: int | None = None) -> list[FinancialMovement]:
-    if seed is not None:
-        random.seed(seed)
-    today = date.today()
-    movements: list[FinancialMovement] = []
-    for month in range(1, 13):
-        income_probability = random.uniform(0.45, 0.7)
-        for _ in range(30):
-            movements.append(_build_movement(month, income_probability, today))
-    movements.sort(key=lambda item: item.create_date)
-    return movements
-
-
-def filter_movements_by_date(
-    movements: list[FinancialMovement],
-    start_date: date | None,
-    end_date: date | None,
-) -> list[FinancialMovement]:
-    if start_date is None and end_date is None:
-        return movements
-
-    filtered = movements
-    if start_date is not None:
-        filtered = [
-            movement for movement in filtered if movement.create_date >= start_date]
-    if end_date is not None:
-        filtered = [
-            movement for movement in filtered if movement.create_date <= end_date]
-    return filtered
-
-
-def filter_movements(
-    movements: list[FinancialMovement],
-    start_date: date | None,
-    end_date: date | None,
-    category: Category | None,
-    operation_type: OperationType | None,
-) -> list[FinancialMovement]:
-    filtered = filter_movements_by_date(movements, start_date, end_date)
-    if category is not None:
-        filtered = [
-            movement for movement in filtered if movement.category == category
-        ]
-    if operation_type is not None:
-        filtered = [
-            movement
-            for movement in filtered
-            if movement.operation_type == operation_type
-        ]
-    return filtered
-
-
-def ensure_chronological_order(movements: list[FinancialMovement]) -> list[FinancialMovement]:
-    return sorted(movements, key=lambda item: item.create_date)
-
-
-def build_metrics_facets(movements: list[FinancialMovement]) -> MetricsFacets:
-    ordered = ensure_chronological_order(movements)
-    return MetricsFacets(
-        operation_types=sorted({item.operation_type for item in ordered}),
-        business_types=sorted({item.business_type for item in ordered}),
-        categories=sorted({item.category for item in ordered}),
-        min_date=ordered[0].create_date,
-        max_date=ordered[-1].create_date,
-    )
-
-
-def summarize_movements(
-    movements: list[FinancialMovement],
-    group_by: GroupBy,
-) -> list[MetricsSummaryItem]:
-    summary_map: dict[str, dict[str, float]] = defaultdict(
-        lambda: {"income": 0.0, "outcome": 0.0}
-    )
-    for movement in movements:
-        if group_by == "day":
-            key = movement.create_date.isoformat()
-        elif group_by == "week":
-            iso_year, iso_week, _ = movement.create_date.isocalendar()
-            key = f"{iso_year}-W{iso_week:02d}"
-        else:
-            key = movement.create_date.strftime("%Y-%m")
-
-        summary_map[key][movement.operation_type] += movement.amount
-
+def _seed_books() -> list[Book]:
     return [
-        MetricsSummaryItem(
-            period=period,
-            income=round(values["income"], 2),
-            outcome=round(values["outcome"], 2),
-            net=round(values["income"] - values["outcome"], 2),
-        )
-        for period, values in sorted(summary_map.items(), key=lambda item: item[0])
+        Book(id=1, title="Cien anos de soledad", author="Gabriel Garcia Marquez", category="Novela", published_year=1967, available=True),
+        Book(id=2, title="Don Quijote de la Mancha", author="Miguel de Cervantes", category="Clasicos", published_year=1605, available=True),
+        Book(id=3, title="Rayuela", author="Julio Cortazar", category="Novela", published_year=1963, available=False),
+        Book(id=4, title="La tregua", author="Mario Benedetti", category="Poesia", published_year=1960, available=True),
+        Book(id=5, title="El principito", author="Antoine de Saint-Exupery", category="Infantil", published_year=1943, available=True),
+        Book(id=6, title="Pedro Paramo", author="Juan Rulfo", category="Novela", published_year=1955, available=False),
+        Book(id=7, title="Ficciones", author="Jorge Luis Borges", category="Cuentos", published_year=1944, available=True),
+        Book(id=8, title="Mujercitas", author="Louisa May Alcott", category="Juvenil", published_year=1868, available=True),
     ]
 
 
-def build_top_categories(
-    movements: list[FinancialMovement],
-    operation_type: OperationType,
-    limit: int,
-) -> list[TopCategoryItem]:
-    totals: dict[Category, float] = defaultdict(float)
-    for movement in movements:
-        if movement.operation_type == operation_type:
-            totals[movement.category] += movement.amount
-
-    ordered = sorted(totals.items(), key=lambda item: item[1], reverse=True)
-    return [
-        TopCategoryItem(
-            category=category,
-            operation_type=operation_type,
-            total_amount=round(total_amount, 2),
-        )
-        for category, total_amount in ordered[:limit]
-    ]
+BOOKS: list[Book] = _seed_books()
+NEXT_ID = max(book.id for book in BOOKS) + 1
 
 
-def calculate_net_value(movements: list[FinancialMovement]) -> float:
-    income = sum(
-        item.amount for item in movements if item.operation_type == "income")
-    outcome = sum(
-        item.amount for item in movements if item.operation_type == "outcome")
-    return round(income - outcome, 2)
+def _apply_filters(
+    books: list[Book],
+    q: str | None,
+    author: str | None,
+    category: str | None,
+    available: bool | None,
+) -> list[Book]:
+    filtered = books
+
+    if q:
+        q_text = q.lower().strip()
+        filtered = [
+            book
+            for book in filtered
+            if q_text in book.title.lower()
+            or q_text in book.author.lower()
+            or q_text in book.category.lower()
+        ]
+
+    if author:
+        filtered = [book for book in filtered if book.author == author]
+
+    if category:
+        filtered = [book for book in filtered if book.category == category]
+
+    if available is not None:
+        filtered = [book for book in filtered if book.available is available]
+
+    return sorted(filtered, key=lambda item: (item.title.lower(), item.id))
 
 
-def detect_outcome_alerts(
-    summary: list[MetricsSummaryItem],
-    threshold: float,
-) -> list[MetricsAlert]:
-    alerts: list[MetricsAlert] = []
-    historical_outcomes: list[float] = []
-    for item in summary:
-        if historical_outcomes:
-            baseline = sum(historical_outcomes) / len(historical_outcomes)
-            if baseline > 0:
-                increase_ratio = (item.outcome - baseline) / baseline
-                if increase_ratio > threshold:
-                    alerts.append(
-                        MetricsAlert(
-                            period=item.period,
-                            outcome_total=round(item.outcome, 2),
-                            baseline_average=round(baseline, 2),
-                            increase_ratio=round(increase_ratio, 4),
-                        )
-                    )
-        historical_outcomes.append(item.outcome)
-    return alerts
+def _find_book(book_id: int) -> Book:
+    for book in BOOKS:
+        if book.id == book_id:
+            return book
+    raise HTTPException(status_code=404, detail="Book not found")
 
 
 @router.get("/health")
@@ -245,147 +97,48 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@router.get("/api/metrics", response_model=list[FinancialMovement])
-def get_metrics(
-    start_date: date | None = Query(default=None),
-    end_date: date | None = Query(default=None),
-    category: Category | None = Query(default=None),
-    operation_type: OperationType | None = Query(default=None),
-) -> list[FinancialMovement]:
-    movements = generate_mock_movements(seed=42)
-    filtered = filter_movements(
-        movements, start_date, end_date, category, operation_type
-    )
-    return ensure_chronological_order(filtered)
+@router.get("/api/books", response_model=list[Book])
+def get_books(
+    q: str | None = Query(default=None),
+    author: str | None = Query(default=None),
+    category: str | None = Query(default=None),
+    available: bool | None = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=200),
+) -> list[Book]:
+    filtered = _apply_filters(BOOKS, q, author, category, available)
+    return filtered[:limit]
 
 
-@router.get("/api/metrics/facets", response_model=MetricsFacets)
-def get_metrics_facets() -> MetricsFacets:
-    movements = generate_mock_movements(seed=42)
-    return build_metrics_facets(movements)
+@router.get("/api/books/facets", response_model=CatalogFacets)
+def get_catalog_facets() -> CatalogFacets:
+    authors = sorted({book.author for book in BOOKS})
+    categories = sorted({book.category for book in BOOKS})
+    available_books = sum(1 for book in BOOKS if book.available)
 
-
-@router.get("/api/metrics/summary", response_model=list[MetricsSummaryItem])
-def get_metrics_summary(
-    group_by: GroupBy = Query(default="month"),
-    start_date: date | None = Query(default=None),
-    end_date: date | None = Query(default=None),
-    category: Category | None = Query(default=None),
-    operation_type: OperationType | None = Query(default=None),
-    business_type: BusinessType | None = Query(default=None),
-) -> list[MetricsSummaryItem]:
-    movements = generate_mock_movements(seed=42)
-    if business_type is not None:
-        movements = [
-            item for item in movements if item.business_type == business_type]
-    filtered = filter_movements(
-        movements, start_date, end_date, category, operation_type
-    )
-    return summarize_movements(filtered, group_by)
-
-
-@router.get("/api/metrics/categories/top", response_model=list[TopCategoryItem])
-def get_top_categories(
-    operation_type: OperationType = Query(default="outcome"),
-    limit: int = Query(default=5, ge=1, le=20),
-    start_date: date | None = Query(default=None),
-    end_date: date | None = Query(default=None),
-    business_type: BusinessType | None = Query(default=None),
-) -> list[TopCategoryItem]:
-    movements = generate_mock_movements(seed=42)
-    if business_type is not None:
-        movements = [
-            item for item in movements if item.business_type == business_type]
-    filtered = filter_movements(
-        movements, start_date, end_date, category=None, operation_type=operation_type
-    )
-    return build_top_categories(filtered, operation_type, limit)
-
-
-@router.get("/api/metrics/comparison", response_model=MetricsComparison)
-def get_metrics_comparison(
-    start_date: date = Query(...),
-    end_date: date = Query(...),
-    business_type: BusinessType | None = Query(default=None),
-) -> MetricsComparison:
-    movements = generate_mock_movements(seed=42)
-    if business_type is not None:
-        movements = [
-            item for item in movements if item.business_type == business_type]
-
-    current_movements = filter_movements(
-        movements, start_date, end_date, category=None, operation_type=None
-    )
-    current_net = calculate_net_value(current_movements)
-
-    duration = end_date - start_date
-    previous_end = start_date - timedelta(days=1)
-    previous_start = previous_end - duration
-    previous_movements = filter_movements(
-        movements, previous_start, previous_end, category=None, operation_type=None
-    )
-    previous_net = calculate_net_value(previous_movements)
-
-    delta_abs = round(current_net - previous_net, 2)
-    delta_pct = None
-    if previous_net != 0:
-        delta_pct = round((delta_abs / abs(previous_net)) * 100, 2)
-
-    return MetricsComparison(
-        current_period=current_net,
-        previous_period=previous_net,
-        delta_abs=delta_abs,
-        delta_pct=delta_pct,
+    return CatalogFacets(
+        authors=authors,
+        categories=categories,
+        total_books=len(BOOKS),
+        available_books=available_books,
     )
 
 
-@router.get("/api/metrics/alerts", response_model=list[MetricsAlert])
-def get_metrics_alerts(
-    threshold: float = Query(default=0.3, ge=0),
-    group_by: GroupBy = Query(default="month"),
-    start_date: date | None = Query(default=None),
-    end_date: date | None = Query(default=None),
-    business_type: BusinessType | None = Query(default=None),
-) -> list[MetricsAlert]:
-    movements = generate_mock_movements(seed=42)
-    if business_type is not None:
-        movements = [
-            item for item in movements if item.business_type == business_type]
+@router.post("/api/books", response_model=Book, status_code=status.HTTP_201_CREATED)
+def create_book(payload: BookCreate) -> Book:
+    global NEXT_ID
 
-    filtered = filter_movements(
-        movements, start_date, end_date, category=None, operation_type=None
-    )
-    summary = summarize_movements(filtered, group_by)
-    return detect_outcome_alerts(summary, threshold)
+    book = Book(id=NEXT_ID, **payload.model_dump())
+    BOOKS.append(book)
+    NEXT_ID += 1
+    return book
 
 
-@router.get("/api/metrics/b2b", response_model=list[FinancialMovement])
-def get_b2b_metrics(
-    start_date: date | None = Query(default=None),
-    end_date: date | None = Query(default=None),
-    category: Category | None = Query(default=None),
-    operation_type: OperationType | None = Query(default=None),
-) -> list[FinancialMovement]:
-    movements = [
-        movement for movement in generate_mock_movements(seed=42) if movement.business_type == "B2B"
-    ]
-    filtered = filter_movements(
-        movements, start_date, end_date, category, operation_type
-    )
-    return ensure_chronological_order(filtered)
+@router.put("/api/books/{book_id}", response_model=Book)
+def update_book(book_id: int, payload: BookUpdate) -> Book:
+    current = _find_book(book_id)
+    updates = payload.model_dump(exclude_unset=True)
 
+    for field_name, field_value in updates.items():
+        setattr(current, field_name, field_value)
 
-@router.get("/api/metrics/b2c", response_model=list[FinancialMovement])
-def get_b2c_metrics(
-    start_date: date | None = Query(default=None),
-    end_date: date | None = Query(default=None),
-    category: Category | None = Query(default=None),
-    operation_type: OperationType | None = Query(default=None),
-) -> list[FinancialMovement]:
-    movements = [
-        movement for movement in generate_mock_movements(seed=42) if movement.business_type == "B2C"
-    ]
-    filtered = filter_movements(
-        movements, start_date, end_date, category, operation_type
-    )
-    return ensure_chronological_order(filtered)
+    return current
