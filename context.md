@@ -14,18 +14,12 @@ Permite consultar, filtrar y administrar un catalogo de libros mediante un front
 ## Stack tecnologico
 
 ### Backend
-- Lenguaje: Python 3.13 (imagen `python:3.13-slim`).
-- Framework API: FastAPI.
-- Servidor ASGI: Uvicorn (`uvicorn[standard]`).
-- Debug remoto: `debugpy` (puerto 5678 expuesto).
-- Testing: `pytest`, `pytest-cov`, `httpx`, `fastapi.testclient`.
+- Resumen: una API en FastAPI
+- [Detalle](./memory-bank/arqueture-backend.md)
 
 ### Frontend
-- Framework: React 19 + TypeScript.
-- Bundler/dev server: Vite 8.
-- Estilos: Tailwind CSS v4 (via `@tailwindcss/vite`) + variables CSS (OKLCH).
-- Tooling: ESLint (flat config), TypeScript, Vitest.
-- Librerias incluidas: `recharts`, `lucide-react`, `clsx`, `tailwind-merge`, `class-variance-authority`.
+- Resumen: Una aplicación en React con Typescript y Tailwind
+- [Detalle](./memory-bank/arqueture-frontend.md)
 
 ### Orquestacion y entorno
 - Docker Compose con 2 servicios:

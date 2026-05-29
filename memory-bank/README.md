@@ -1,0 +1,1 @@
+# Este directorio contiene el Banco de Memoria para los Agentes
