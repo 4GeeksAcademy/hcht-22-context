@@ -1,20 +1,5 @@
 # Catálogo de Biblioteca Comunitaria
 
-<!-- hide -->
-
-Por [@marcogonzalo](https://github.com/marcogonzalo) y [otros contribuidores](https://github.com/4GeeksAcademy/ai-eng-financial-dashboard-context-project/graphs/contributors) en [4Geeks Academy](https://4geeksacademy.com/)
-
-[![build by developers](https://img.shields.io/badge/build_by-Developers-blue)](https://4geeks.com)
-[![4Geeks Academy](https://img.shields.io/twitter/follow/4geeksacademy?style=social&logo=x)](https://x.com/4geeksacademy)
-
-_These instructions are [available in English](./README.md)._
-
-**Antes de empezar**: 📗 [Lee las instrucciones](https://4geeks.com/es/lesson/como-comenzar-un-proyecto-de-codificacion) sobre cómo comenzar un proyecto de programación.
-
-<!-- endhide -->
-
----
-
 _Aplicación de catálogo de biblioteca comunitaria con frontend en React + TypeScript y backend en FastAPI._
 
 ## Pasos recomendados
@@ -25,15 +10,24 @@ _Aplicación de catálogo de biblioteca comunitaria con frontend en React + Type
 4. Documenta las reglas propuestas y el banco de memoria en tu fork.
 5. Ajusta y valida las reglas hasta que sean aplicables al flujo real del proyecto.
 
+| Concepto|	Dónde se aplica|
+|-|-|
+|Exploración de código con IA	| Fase 1: generar y validar un resumen del proyecto |
+|Análisis de prácticas de ingeniería	| Fase 2: identificar patrones buenos y malos |
+|Reglas de repositorio (.agents/rules)	| Fase 3: escribir archivos de gobernanza accionables |
+|Documentación del memory bank	| Fase 4: descripción del producto, stack tecnológico, estado actual |
+|Disciplina de commits|	Un commit por fase, sin mega-commits agrupados |
+
 ## Estructura esperada del directorio para agentes
 
 ```text
 ./.agents
 └─ /rules
    └─ <nombre-regla>.md
-└─ /skills
-   └─ /<nombre-skill>
-      └─ /SKILL.md
+└─ memory-bank/
+   ├── architecture.md
+   ├── product-context.md
+   └── README.md
 ```
 
 ## Cómo ejecutar en local
