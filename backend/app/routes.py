@@ -114,13 +114,10 @@ def get_catalog_facets() -> CatalogFacets:
     authors = sorted({book.author for book in BOOKS})
     categories = sorted({book.category for book in BOOKS})
     available_books = sum(1 for book in BOOKS if book.available)
-
-    return CatalogFacets(
-        authors=authors,
-        categories=categories,
-        total_books=len(BOOKS),
-        available_books=available_books,
-    )
+    return CatalogFacets(authors=authors,
+                         categories=categories,
+                         total_books=len(BOOKS),
+                         available_books=available_books)
 
 
 @router.post("/api/books", response_model=Book, status_code=status.HTTP_201_CREATED)

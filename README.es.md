@@ -1,4 +1,4 @@
-# Panel de Métricas Financieras
+# Catálogo de Biblioteca Comunitaria
 
 <!-- hide -->
 
@@ -15,7 +15,7 @@ _These instructions are [available in English](./README.md)._
 
 ---
 
-_Dashboard de métricas financieras con frontend en React + TypeScript y backend en FastAPI._
+_Aplicación de catálogo de biblioteca comunitaria con frontend en React + TypeScript y backend en FastAPI._
 
 ## Pasos recomendados
 

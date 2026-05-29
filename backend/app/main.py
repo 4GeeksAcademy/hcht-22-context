@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.routes import router
 
-app = FastAPI(title="Financial Metrics API")
+app = FastAPI(title="Community Library Catalog API")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

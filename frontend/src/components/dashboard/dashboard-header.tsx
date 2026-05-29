@@ -12,8 +12,8 @@ export function DashboardHeader({ period = '2024 — Full Year' }: DashboardHead
           <LayoutDashboard size={18} />
         </span>
         <div>
-          <h1 className="text-xl font-semibold text-foreground tracking-tight">Financial Overview</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">Executive metrics dashboard</p>
+          <h1 className="text-xl font-semibold text-foreground tracking-tight">Library Catalog Overview</h1>
+          <p className="text-xs text-muted-foreground mt-0.5">Community catalog and circulation view</p>
         </div>
       </div>
       <div className="flex items-center gap-2">

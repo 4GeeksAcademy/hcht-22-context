@@ -1,4 +1,4 @@
-# Financial Metrics Dashboard
+# Community Library Catalog
 
 <!-- hide -->
 
@@ -15,7 +15,7 @@ _Estas instrucciones están [disponibles en español](./README.es.md)._
 
 ---
 
-_Financial metrics dashboard with a React + TypeScript frontend and a FastAPI backend._
+_Community library catalog app with a React + TypeScript frontend and a FastAPI backend._
 
 ## Recommended steps
 
