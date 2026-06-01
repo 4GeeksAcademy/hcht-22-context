@@ -59,7 +59,7 @@ Componente contenedor unico (monolito de presentacion + estado + acceso a datos)
 ### Mejores siguientes pasos
 1. Extraer cliente API a `services` o `lib/api`.
 2. Extraer logica de estado a hooks (`useCatalog`, `useBookForm`).
-3. Dividir la UI en componentes de dominio (`CatalogHeader`, `FiltersPanel`, `BookList`, `BookForm`).
+3. 
 4. Agregar pruebas de comportamiento (al menos filtros, creacion y edicion).
 
 ## Notas de mantenimiento
