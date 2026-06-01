@@ -44,12 +44,6 @@ Validaciones:
 - Si no existe un libro solicitado para update, retorna 404.
 
 ### Frontend (SPA)
-La aplicacion principal (`App.tsx`) maneja:
-- Estado de filtros y formulario.
-- Carga inicial y recarga por cambios de filtros.
-- Fetch concurrente de libros + facets (`Promise.all`).
-- Manejo de errores y estados de carga/envio.
-- Modo creacion y modo edicion de libros.
 
 Interfaz:
 - Header con KPIs basicos del catalogo.
@@ -69,15 +63,10 @@ Las pruebas cubren:
 - Actualizacion de libros.
 
 ### Frontend
-Hay pruebas unitarias enfocadas en utilidades financieras (`financial-utils.ts`):
-- Calculo de KPIs (ingresos/egresos/beneficio).
-- Agregacion mensual.
-- Formateo de moneda y porcentaje.
+
 
 ## Observaciones de estado actual
-- Existe una **inconsistencia de dominio**: el producto actual es un catalogo de biblioteca, pero en `frontend/src/lib` hay tipos, mocks y tests de analitica financiera que no se usan en `App.tsx`.
-- El backend no persiste datos: al reiniciar el contenedor/proceso, el catalogo vuelve al seed inicial.
-- `README.md` (ingles) es minimo y delega casi todo a `README.es.md`.
+
 
 ## Conclusiones
 Proyecto educativo full-stack, bien enfocado para practicar integracion React + FastAPI, filtros, formularios y pruebas basicas.
