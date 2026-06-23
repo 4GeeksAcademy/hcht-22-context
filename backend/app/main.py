@@ -1,3 +1,5 @@
+"""FastAPI application setup with CORS and route registration."""
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 

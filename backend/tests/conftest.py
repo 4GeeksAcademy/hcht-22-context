@@ -1,3 +1,5 @@
+"""Pytest configuration helpers for backend tests."""
+
 import sys
 from pathlib import Path
 

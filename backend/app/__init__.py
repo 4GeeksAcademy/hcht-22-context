@@ -1,1 +1,1 @@
-# Marks app as a package for imports in tests and runtime.
+"""Application package for the backend service."""
