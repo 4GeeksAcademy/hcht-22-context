@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+"""API routes and domain schemas for the community library catalog."""
+
 from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
@@ -7,6 +9,8 @@ router = APIRouter()
 
 
 class BookBase(BaseModel):
+    """Shared attributes used by book payloads and responses."""
+
     title: str = Field(min_length=1, max_length=180)
     author: str = Field(min_length=1, max_length=120)
     category: str = Field(min_length=1, max_length=80)
@@ -15,14 +19,20 @@ class BookBase(BaseModel):
 
 
 class Book(BookBase):
+    """Book representation persisted in the in-memory catalog."""
+
     id: int
 
 
 class BookCreate(BookBase):
+    """Payload used to create a new book in the catalog."""
+
     pass
 
 
 class BookUpdate(BaseModel):
+    """Partial payload used to update an existing book."""
+
     title: str | None = Field(default=None, min_length=1, max_length=180)
     author: str | None = Field(default=None, min_length=1, max_length=120)
     category: str | None = Field(default=None, min_length=1, max_length=80)
@@ -31,6 +41,8 @@ class BookUpdate(BaseModel):
 
 
 class CatalogFacets(BaseModel):
+    """Aggregated catalog metadata for filters and summary counters."""
+
     authors: list[str]
     categories: list[str]
     total_books: int
@@ -38,6 +50,8 @@ class CatalogFacets(BaseModel):
 
 
 def _seed_books() -> list[Book]:
+    """Build the initial in-memory catalog used at startup."""
+
     return [
         Book(id=1, title="Cien anos de soledad", author="Gabriel Garcia Marquez", category="Novela", published_year=1967, available=True),
         Book(id=2, title="Don Quijote de la Mancha", author="Miguel de Cervantes", category="Clasicos", published_year=1605, available=True),
@@ -61,6 +75,19 @@ def _apply_filters(
     category: str | None,
     available: bool | None,
 ) -> list[Book]:
+    """Filter and sort books using optional query parameters.
+
+    Args:
+        books: Base catalog collection to evaluate.
+        q: Search text applied to title, author, and category.
+        author: Exact author name filter.
+        category: Exact category filter.
+        available: Availability flag filter.
+
+    Returns:
+        Sorted list of books matching the provided filters.
+    """
+
     filtered = books
 
     if q:
@@ -86,6 +113,18 @@ def _apply_filters(
 
 
 def _find_book(book_id: int) -> Book:
+    """Return a book by identifier or raise a not-found HTTP error.
+
+    Args:
+        book_id: Unique book identifier.
+
+    Returns:
+        The matched book from the in-memory catalog.
+
+    Raises:
+        HTTPException: If no book exists with the given identifier.
+    """
+
     for book in BOOKS:
         if book.id == book_id:
             return book
@@ -94,6 +133,8 @@ def _find_book(book_id: int) -> Book:
 
 @router.get("/health")
 def health() -> dict[str, str]:
+    """Return service health status for probes and smoke checks."""
+
     return {"status": "ok"}
 
 
@@ -105,12 +146,31 @@ def get_books(
     available: bool | None = Query(default=None),
     limit: int = Query(default=100, ge=1, le=200),
 ) -> list[Book]:
+    """Retrieve books with optional filters and pagination limit.
+
+    Args:
+        q: Free-text query for title, author, or category.
+        author: Exact author filter.
+        category: Exact category filter.
+        available: Availability filter.
+        limit: Maximum number of records to return.
+
+    Returns:
+        List of books sorted by title and identifier.
+    """
+
     filtered = _apply_filters(BOOKS, q, author, category, available)
     return filtered[:limit]
 
 
 @router.get("/api/books/facets", response_model=CatalogFacets)
 def get_catalog_facets() -> CatalogFacets:
+    """Return distinct filter facets and catalog summary counts.
+
+    Returns:
+        Catalog facets including authors, categories, and totals.
+    """
+
     authors = sorted({book.author for book in BOOKS})
     categories = sorted({book.category for book in BOOKS})
     available_books = sum(1 for book in BOOKS if book.available)
@@ -122,6 +182,15 @@ def get_catalog_facets() -> CatalogFacets:
 
 @router.post("/api/books", response_model=Book, status_code=status.HTTP_201_CREATED)
 def create_book(payload: BookCreate) -> Book:
+    """Create a new book and append it to the in-memory catalog.
+
+    Args:
+        payload: Data required to create the new book.
+
+    Returns:
+        The created book including the generated identifier.
+    """
+
     global NEXT_ID
 
     book = Book(id=NEXT_ID, **payload.model_dump())
@@ -132,6 +201,19 @@ def create_book(payload: BookCreate) -> Book:
 
 @router.put("/api/books/{book_id}", response_model=Book)
 def update_book(book_id: int, payload: BookUpdate) -> Book:
+    """Apply partial updates to an existing book.
+
+    Args:
+        book_id: Identifier of the book to update.
+        payload: Partial fields to update.
+
+    Returns:
+        Updated book record.
+
+    Raises:
+        HTTPException: If the target book does not exist.
+    """
+
     current = _find_book(book_id)
     updates = payload.model_dump(exclude_unset=True)
 

@@ -1,3 +1,5 @@
+"""Integration-style API tests for library catalog routes."""
+
 from fastapi.testclient import TestClient
 
 from app.main import app
